@@ -139,10 +139,10 @@ int fs_mount()
 	my_super.ninodes = block.super.ninodes;
 
 	// Nao fiz free desta merda porque nao sei onde meter
-	blockBitMap = (char *)malloc(block.super.nblocks*sizeof(char));
+	blockBitMap = (unsigned char *)malloc(block.super.nblocks*sizeof(char));
 
 	// This registers the superblock and inodeblocks with NOT_FREE on the blockBitMap
-	for (int i = 0; i < my_super.ninodeblocks; i++) {
+	for (int i = 0; i < numSuperblocks + my_super.ninodeblocks; i++) {
 		blockBitMap[i] = NOT_FREE;
 	}
 
