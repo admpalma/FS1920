@@ -191,9 +191,15 @@ int fs_create()
 		//Sweeps every inode
 		for (int j = 0; j < INODES_PER_BLOCK && !freeInode; j++) {
 
-			//IF THE INODE IS NON_VALID, CHANGES IT TO VALID AND RETURNS INODE NUMBER
+			//IF THE INODE IS NON_VALID, CHANGES IT TO VALID AND FILLS IT PROPERLY
 			if(!block.inode[j].isvalid) {
 				block.inode[j].isvalid = VALID;
+				block.inode[j].size = 0;
+
+				int nBlock = getFreeBlock();
+				block.inode[j].direct[0] = nBlock;
+
+				blockBitMap[nBlock] = NOT_FREE;
 				freeInode = j;
 			}
 		}
