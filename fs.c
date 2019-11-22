@@ -135,7 +135,7 @@ int fs_mount()
 	my_super.magic = FS_MAGIC;
 
 	// Nao fiz free desta merda porque nao sei onde meter
-	blockBitMap = &malloc(block.super.nblocks, sizeof(char));
+	blockBitMap = (char *)malloc(block.super.nblocks*sizeof(char));
 
 	// This registers the superblock and inodeblocks with NOT_FREE on the blockBitMap
 	for (int i = 0; i < block.super.ninodeblocks; i++) {
@@ -143,7 +143,7 @@ int fs_mount()
 	}
 
 	//This sweeps the inode blocks to register the various used datablocks
-	int ninodeBlocks = block.superblock.ninodeblocks;
+	int ninodeBlocks = block.super.ninodeblocks;
 	for (int i = 1; i < ninodeBlocks; i++) {
 
 		// Reads inodeBlock
@@ -155,7 +155,7 @@ int fs_mount()
 			if(block.inode[j].isvalid) {
 
 				//Finds the number of blocks used by inode
-				int pointToBlock = block.inode.size / DISK_BLOCK_SIZE;
+				int pointToBlock = block.inode->size / DISK_BLOCK_SIZE;
 
 				//Registers which blocks are NOT_FREE
 				for (int k = 0; k < pointToBlock; k++) {
@@ -195,8 +195,7 @@ int fs_create()
 			if(!block.inode[j].isvalid) {
 				block.inode[j].isvalid = VALID;
 				block.inode[j].size = 0;
-
-				blockBitMap[nBlock] = NOT_FREE;
+				
 				freeInode = j;
 
 			}
@@ -249,7 +248,7 @@ int fs_delete( int inumber )
 	if(my_super.ninodes < inumber)
 	return -1;
 
-	inode_load(inumber, inode);
+	inode_load(inumber, &inode);
 
 	//Number of blocks occupied of the file
 	int numBlocks = (int)ceil((float)inode.size/DISK_BLOCK_SIZE);
@@ -260,7 +259,7 @@ int fs_delete( int inumber )
 	}
 
 	inode.isvalid = NON_VALID;
-	inode_save(inumber, inode);
+	inode_save(inumber, &inode);
 
 	/* CODIGO A FAZER */
 
@@ -278,7 +277,7 @@ int fs_getsize( int inumber )
 	if(my_super.ninodes < inumber)
 	return -1;
 
-	inode_load(inumber, inode);
+	inode_load(inumber, &inode);
 	/* CODIGO A FAZER */
 	return inode.size;
 }
