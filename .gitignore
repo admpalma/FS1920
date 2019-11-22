@@ -58,3 +58,5 @@ obj/
 *.vcxproj
 
 *.user
+
+bin/

@@ -144,7 +144,7 @@ int fs_mount()
 
 	//This sweeps the inode blocks to register the various used datablocks
 	int ninodeBlocks = block.super.ninodeblocks;
-	for (int i = 1; i < ninodeBlocks; i++) {
+	for (int i = 1; i <= ninodeBlocks; i++) {
 
 		// Reads inodeBlock
 		disk_read(i,block.data);
@@ -155,7 +155,7 @@ int fs_mount()
 			if(block.inode[j].isvalid) {
 
 				//Finds the number of blocks used by inode
-				int pointToBlock = block.inode->size / DISK_BLOCK_SIZE;
+				int pointToBlock = block.inode[j].size / DISK_BLOCK_SIZE;
 
 				//Registers which blocks are NOT_FREE
 				for (int k = 0; k < pointToBlock; k++) {
