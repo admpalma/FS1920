@@ -248,7 +248,6 @@ int fs_delete( int inumber )
 
 int fs_getsize( int inumber )
 {
-
 	if(my_super.magic != FS_MAGIC){
 		printf("disc not mounted\n");
 		return -1;
@@ -258,7 +257,6 @@ int fs_getsize( int inumber )
 		return -1;
 	}
 	inode_load(inumber, &inode);
-	/* CODIGO A FAZER */
 	return inode.size;
 }
 
