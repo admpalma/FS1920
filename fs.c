@@ -132,19 +132,21 @@ int fs_mount()
 		return -1;
 	}
 	//mounts disk
-	my_super.magic = FS_MAGIC;
+	my_super.magic = block.super.magic;
+	my_super.nblocks = block.super.nblocks;
+	my_super.ninodeblocks = block.super.ninodeblocks;
+	my_super.ninodes = block.super.ninodes;
 
 	// Nao fiz free desta merda porque nao sei onde meter
 	blockBitMap = (char *)malloc(block.super.nblocks*sizeof(char));
 
 	// This registers the superblock and inodeblocks with NOT_FREE on the blockBitMap
-	for (int i = 0; i < block.super.ninodeblocks; i++) {
+	for (int i = 0; i < my_super.ninodeblocks; i++) {
 		blockBitMap[i] = NOT_FREE;
 	}
 
 	//This sweeps the inode blocks to register the various used datablocks
-	int ninodeBlocks = block.super.ninodeblocks;
-	for (int i = 1; i <= ninodeBlocks; i++) {
+	for (int i = 1; i <= my_super.ninodeblocks; i++) {
 
 		// Reads inodeBlock
 		disk_read(i,block.data);
