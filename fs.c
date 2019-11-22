@@ -30,7 +30,6 @@ struct fs_inode {
 union fs_block {
 	struct fs_superblock super;
 	struct fs_inode inode[INODES_PER_BLOCK];
-	unsigned int pointers[POINTERS_PER_BLOCK];
 	char data[DISK_BLOCK_SIZE];
 };
 
@@ -132,11 +131,13 @@ int fs_mount()
 		printf("file system size and disk size differ!\n");
 		return -1;
 	}
+	//mounts disk
+	my_super.magic = FS_MAGIC;
 
 	// Nao fiz free desta merda porque nao sei onde meter
 	blockBitMap = &malloc(block.super.nblocks, sizeof(char));
 
-	// This resgisters the superblock and inodeblocks with NOT_FREE on the blockBitMap
+	// This registers the superblock and inodeblocks with NOT_FREE on the blockBitMap
 	for (int i = 0; i < block.super.ninodeblocks; i++) {
 		blockBitMap[i] = NOT_FREE;
 	}
@@ -168,9 +169,9 @@ int fs_mount()
 
 int fs_create()
 {
-	int freeInode, inodeBlock;
+	int freeInode/*,inodeBlock*/;
 	union fs_block block;
-	int i, j;
+//	int i, j;
 
 
 	if(my_super.magic != FS_MAGIC){
@@ -179,11 +180,10 @@ int fs_create()
 	}
 
 	/* CODIGO A FAZER */
-	//I HOPE
+
 	freeInode = 0;
 	//This sweeps the inode blocks to register the various used datablocks
-	inodeBlock = block.superblock.ninodeblocks;
-	for (int i = 1; i < inodeBlock && !freeInode; i++) {
+	for (int i = 1; i < my_super.ninodeblocks && !freeInode; i++) {
 
 		// Reads inodeBlock
 		disk_read(i,block.data);
@@ -196,11 +196,9 @@ int fs_create()
 				block.inode[j].isvalid = VALID;
 				block.inode[j].size = 0;
 
-				int nBlock = getFreeBlock();
-				block.inode[j].direct[0] = nBlock;
-
 				blockBitMap[nBlock] = NOT_FREE;
 				freeInode = j;
+
 			}
 		}
 	}
@@ -240,12 +238,29 @@ void inode_save( int inumber, struct fs_inode *inode ){
 
 int fs_delete( int inumber )
 {
-	int i;
+
+//	int i;
 
 	if(my_super.magic != FS_MAGIC){
 		printf("disc not mounted\n");
 		return -1;
 	}
+	// CHECKS IF THE INODE NUMBER IS LOWER THAN THE TOTAL NUMBER OF INODES
+	if(my_super.ninodes < inumber)
+	return -1;
+
+	inode_load(inumber, inode);
+
+	//Number of blocks occupied of the file
+	int numBlocks = (int)ceil((float)inode.size/DISK_BLOCK_SIZE);
+
+	//Updating BitMap
+	for (int i = 0; i < numBlocks; i++) {
+		blockBitMap[inode.direct[i]] = FREE;
+	}
+
+	inode.isvalid = NON_VALID;
+	inode_save(inumber, inode);
 
 	/* CODIGO A FAZER */
 
@@ -259,9 +274,13 @@ int fs_getsize( int inumber )
 		printf("disc not mounted\n");
 		return -1;
 	}
+	// CHECKS IF THE INODE NUMBER IS LOWER THAN THE TOTAL NUMBER OF INODES
+	if(my_super.ninodes < inumber)
+	return -1;
 
+	inode_load(inumber, inode);
 	/* CODIGO A FAZER */
-
+	return inode.size;
 }
 
 
