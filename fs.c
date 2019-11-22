@@ -20,6 +20,7 @@ struct fs_superblock {
 	unsigned int ninodes;
 };
 struct fs_superblock my_super;
+const int numSuperblocks = 1;
 
 struct fs_inode {
 	unsigned int isvalid;
@@ -146,7 +147,7 @@ int fs_mount()
 	}
 
 	//This sweeps the inode blocks to register the various used datablocks
-	for (int i = 1; i <= my_super.ninodeblocks; i++) {
+	for (int i = numSuperblocks; i < numSuperblocks + my_super.ninodeblocks; i++) {
 
 		// Reads inodeBlock
 		disk_read(i,block.data);
@@ -171,44 +172,25 @@ int fs_mount()
 
 int fs_create()
 {
-	int freeInode/*,inodeBlock*/;
-	union fs_block block;
-//	int i, j;
-
-
 	if(my_super.magic != FS_MAGIC){
 		printf("disc not mounted\n");
 		return -1;
 	}
 
-	/* CODIGO A FAZER */
+	union fs_block block;
 
-	freeInode = 0;
 	//This sweeps the inode blocks to register the various used datablocks
-	for (int i = 1; i < my_super.ninodeblocks && !freeInode; i++) {
-
-		// Reads inodeBlock
-		disk_read(i,block.data);
-
-		//Sweeps every inode
-		for (int j = 0; j < INODES_PER_BLOCK && !freeInode; j++) {
-
-			//IF THE INODE IS NON_VALID, CHANGES IT TO VALID AND FILLS IT PROPERLY
-			if(!block.inode[j].isvalid) {
-				block.inode[j].isvalid = VALID;
-				block.inode[j].size = 0;
-				
-				freeInode = j;
-
+	for (int blockNumber = numSuperblocks; blockNumber < numSuperblocks + my_super.ninodeblocks; blockNumber++) {
+		disk_read(blockNumber, block.data);
+		for (int inodeIndex = 0; inodeIndex < INODES_PER_BLOCK; inodeIndex++) {
+			if(!block.inode[inodeIndex].isvalid) {
+				block.inode[inodeIndex].isvalid = VALID;
+				block.inode[inodeIndex].size = 0;
+				return (blockNumber - numSuperblocks) * INODES_PER_BLOCK + inodeIndex;
 			}
 		}
 	}
-
-	//THIS IS INCASE THERE IS NO INODE AVAILABLE
-	if(!freeInode)
-		freeInode = -1;
-
-	return freeInode;
+	return -1;
 }
 
 void inode_load( int inumber, struct fs_inode *inode ){
