@@ -20,7 +20,7 @@ struct fs_superblock {
 	unsigned int ninodes;
 };
 struct fs_superblock my_super;
-const int numSuperblocks = 1;
+const int NUM_SUPERBLOCKS = 1;
 
 struct fs_inode {
 	unsigned int isvalid;
@@ -142,12 +142,12 @@ int fs_mount()
 	blockBitMap = (unsigned char *)malloc(block.super.nblocks*sizeof(char));
 
 	// This registers the superblock and inodeblocks with NOT_FREE on the blockBitMap
-	for (int i = 0; i < numSuperblocks + my_super.ninodeblocks; i++) {
+	for (int i = 0; i < NUM_SUPERBLOCKS + my_super.ninodeblocks; i++) {
 		blockBitMap[i] = NOT_FREE;
 	}
 
 	//This sweeps the inode blocks to register the various used datablocks
-	for (int i = numSuperblocks; i < numSuperblocks + my_super.ninodeblocks; i++) {
+	for (int i = NUM_SUPERBLOCKS; i < NUM_SUPERBLOCKS + my_super.ninodeblocks; i++) {
 
 		// Reads inodeBlock
 		disk_read(i,block.data);
@@ -180,13 +180,13 @@ int fs_create()
 	union fs_block block;
 
 	//This sweeps the inode blocks to register the various used datablocks
-	for (int blockNumber = numSuperblocks; blockNumber < numSuperblocks + my_super.ninodeblocks; blockNumber++) {
+	for (int blockNumber = NUM_SUPERBLOCKS; blockNumber < NUM_SUPERBLOCKS + my_super.ninodeblocks; blockNumber++) {
 		disk_read(blockNumber, block.data);
 		for (int inodeIndex = 0; inodeIndex < INODES_PER_BLOCK; inodeIndex++) {
 			if(!block.inode[inodeIndex].isvalid) {
 				block.inode[inodeIndex].isvalid = VALID;
 				block.inode[inodeIndex].size = 0;
-				return (blockNumber - numSuperblocks) * INODES_PER_BLOCK + inodeIndex;
+				return (blockNumber - NUM_SUPERBLOCKS) * INODES_PER_BLOCK + inodeIndex;
 			}
 		}
 	}
@@ -258,9 +258,9 @@ int fs_getsize( int inumber )
 		return -1;
 	}
 	// CHECKS IF THE INODE NUMBER IS LOWER THAN THE TOTAL NUMBER OF INODES
-	if(my_super.ninodes < inumber)
-	return -1;
-
+	if (my_super.ninodes < inumber) {
+		return -1;
+	}
 	inode_load(inumber, &inode);
 	/* CODIGO A FAZER */
 	return inode.size;
