@@ -60,7 +60,7 @@ int fs_format()
   block.super.nblocks = nblocks;
   block.super.ninodeblocks = (int)ceil((float)nblocks*0.1);
   block.super.ninodes = block.super.ninodeblocks * INODES_PER_BLOCK;
-  
+
   printf("superblock:\n");
   printf("    %d blocks\n",block.super.nblocks);
   printf("    %d inode blocks\n",block.super.ninodeblocks);
@@ -97,7 +97,9 @@ void fs_debug()
 	printf("    %d inode blocks\n",block.super.ninodeblocks);
 	printf("    %d inodes\n",block.super.ninodes);
 
-	for( i = 1; i <= block.super.ninodeblocks; i++){
+	// this is to not fuck up for loop
+	unsigned int numInodes = block.super.ninodeblocks;
+	for( i = 1; i <= numInodes; i++){
 	  disk_read( i, block.data );
 	  for( j = 0; j < INODES_PER_BLOCK; j++)
 	    if( block.inode[j].isvalid == VALID){
@@ -115,7 +117,6 @@ void fs_debug()
 int fs_mount()
 {
   union fs_block block;
-  int i, j, k;
 
   if(my_super.magic == FS_MAGIC){
     printf("disc already mounted!\n");
@@ -131,10 +132,40 @@ int fs_mount()
     printf("file system size and disk size differ!\n");
     return -1;
   }
+	/*
+	CODIGO A FAZER
+	*/
 
-  /* CODIGO A FAZER */
+	// Nao fiz free desta merda porque nao sei onde meter
+	blockBitMap = &malloc(block.super.nblocks, sizeof(char));
 
+	// This resgisters the superblock and inodeblocks with NOT_FREE on the blockBitMap
+	for (int i = 0; i < block.super.ninodeblocks; i++) {
+		blockBitMap[i] = NOT_FREE;
+	}
 
+	//This sweeps the inode blocks to register the various used datablocks
+	int ninodeBlocks = block.superblock.ninodeblocks;
+	for (int i = 1; i < ninodeBlocks; i++) {
+
+			// Reads inodeBlock
+			disk_read(i,block.data);
+
+			//Sweeps every inode
+			for (int j = 0; j < INODES_PER_BLOCK; j++) {
+
+				if(block.inode[j].isvalid) {
+
+					//Finds the number of blocks used by inode
+					int pointToBlock = block.inode.size / DISK_BLOCK_SIZE;
+
+					//Registers which blocks are NOT_FREE
+				for (int k = 0; k < pointToBlock; k++) {
+					blockBitMap[block.inode[j].direct[k]] = NOT_FREE;
+					}
+				}
+			}
+	}
 
   return 0;
 }
@@ -150,7 +181,7 @@ int fs_create()
     printf("disc not mounted\n");
     return -1;
   }
- 
+
   /* CODIGO A FAZER */
 
 
@@ -194,7 +225,7 @@ int fs_delete( int inumber )
   }
 
   /* CODIGO A FAZER */
-  
+
   return 0;
 }
 
@@ -228,7 +259,7 @@ int fs_read( int inumber, char *data, int length, int offset )
     printf("inode is not valid\n");
     return -1;
   }
-  
+
   if( offset > inode.size ){
     printf("offset bigger that file size !\n");
     return -1;
@@ -283,9 +314,8 @@ int fs_write( int inumber, char *data, int length, int offset )
   }
 
   /* CODIGO A FAZER */
- 
+
 
   inode_save( inumber, &inode );
   return bytesToWrite;
 }
-
