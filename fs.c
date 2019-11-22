@@ -221,16 +221,14 @@ void inode_save( int inumber, struct fs_inode *inode ){
 
 int fs_delete( int inumber )
 {
-
-//	int i;
-
 	if(my_super.magic != FS_MAGIC){
 		printf("disc not mounted\n");
 		return -1;
 	}
 	// CHECKS IF THE INODE NUMBER IS LOWER THAN THE TOTAL NUMBER OF INODES
-	if(my_super.ninodes < inumber)
-	return -1;
+	if (my_super.ninodes < inumber) {
+		return -1;
+	}
 
 	inode_load(inumber, &inode);
 
@@ -244,8 +242,6 @@ int fs_delete( int inumber )
 
 	inode.isvalid = NON_VALID;
 	inode_save(inumber, &inode);
-
-	/* CODIGO A FAZER */
 
 	return 0;
 }
