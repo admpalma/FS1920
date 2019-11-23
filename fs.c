@@ -287,6 +287,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 	bytesLeft = length;
 	currentBlock = offset / DISK_BLOCK_SIZE;
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
+
 	nCopy = offset;
 	disk_read(inode.direct[currentBlock], &buff);
 	for (size_t i = offsetInBlock; i < DISK_BLOCK_SIZE && bytesLeft > 0 && nCopy < inode.size; i++) {
@@ -301,7 +302,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 	while (bytesLeft > 0 && offsetCurrent > DISK_BLOCK_SIZE) {
 		if (currentBlock > POINTERS_PER_INODE) {
 			// TODO printf("starting to write after end of file\n");
-			return -1;
+			return bytesToRead;
 
 		}
 
@@ -321,7 +322,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 
 		// TODO printf("starting to write after end of file\n");
 
-		return -1;
+		return bytesToRead;
 
 	}
 		disk_read(inode.direct[currentBlock++], &buff);
