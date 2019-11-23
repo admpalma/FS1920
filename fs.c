@@ -266,6 +266,25 @@ int fs_getsize( int inumber )
 
 
 /**************************************************************/
+int min(int a, int b) {
+	if (a < b) {
+		return a;
+	} else {
+		return b;
+	}
+}
+
+/*Writes dataLimit of data starting at dataOffset in data
+up to (bufferLimit - bufferOffset) in buffer starting at bufferOffset
+Returns the number of bytes written*/
+int writeDataInBuffer(char* buffer, int bufferOffset, int bufferLimit, char* data, int dataOffset, int dataLimit) {
+	int limit = min(bufferLimit, dataLimit);
+	for (int i = 0; i < limit; i++) {
+		buffer[i + bufferOffset] = data[i + dataOffset];
+	}
+	return limit;
+}
+
 int fs_read( int inumber, char *data, int length, int offset )
 {
 	int currentBlock, offsetCurrent, offsetInBlock;
@@ -286,53 +305,26 @@ int fs_read( int inumber, char *data, int length, int offset )
 		printf("offset bigger that file size !\n");
 		return -1;
 	}
+	if (inode.size == 0) {
+		return 0;
+	}
 
 	// Start
 	bytesToRead = 0;
 	bytesLeft = length;
 	currentBlock = offset / DISK_BLOCK_SIZE;
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
+	dst = data;
+	offsetCurrent = offset;
 
-	nCopy = offset;
-	disk_read(inode.direct[currentBlock], &buff);
-	for (size_t i = offsetInBlock; i < DISK_BLOCK_SIZE && bytesLeft > 0 && nCopy < inode.size; i++) {
-		data[bytesToRead++] = buff.data[i];
-		bytesLeft--;
-		nCopy++;
-	}
-	offsetCurrent = offset - offsetInBlock;
-	disk_read(inode.direct[currentBlock++], &buff);
-
-	// Mid
-	while (bytesLeft > 0 && offsetCurrent > DISK_BLOCK_SIZE) {
-		if (currentBlock > POINTERS_PER_INODE) {
-			// TODO printf("starting to write after end of file\n");
-			return bytesToRead;
-
-		}
-		for (size_t i = 0; i < DISK_BLOCK_SIZE && bytesLeft > 0 && nCopy < inode.size; i++) {
-			// Pode ser otimizado
-			data[bytesToRead++] = buff.data[i];
-			bytesLeft--;
-			nCopy++;
-		}
-		disk_read(inode.direct[currentBlock++], &buff);
-		offsetCurrent -= DISK_BLOCK_SIZE;
-	}
-
-	// End
-	if (currentBlock > POINTERS_PER_INODE) {
-		// TODO printf("starting to write after end of file\n");
-
-		return bytesToRead;
-
-	}
-	disk_read(inode.direct[currentBlock++], &buff);
-	for (size_t i = 0; i < offsetCurrent && bytesLeft > 0 && nCopy < inode.size; i++) {
-		// Pode ser otimizado
-		data[bytesToRead++] = buff.data[i];
-		bytesLeft--;
-		nCopy++;
+	// Start, Mid and End
+	while (inode.size - offsetCurrent > 0) {
+		disk_read(inode.direct[currentBlock++], buff.data);
+		nCopy = writeDataInBuffer(dst, bytesToRead, min(bytesLeft, inode.size - offsetCurrent), buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock);
+		bytesToRead += nCopy;
+		bytesLeft -= nCopy;
+		offsetCurrent += nCopy;
+		offsetInBlock = 0; // Wasteful mas oh well, not duping code
 	}
 	return bytesToRead;
 }
@@ -354,25 +346,6 @@ int getFreeBlock(){
 	if(i == my_super.nblocks) return -1; /* nao ha' blocos livres */
 	else return i;
 }
-
-/*Writes bytesLeft of data starting at dataOffset up to (DISK_BLOCK_SIZE - bufferOffset)
-in buffer starting at bufferOffset
-Returns the number of bytes written*/
-int writeDataInBuffer(char *buffer, int bufferOffset, int dataOffset, int bytesLeft, char *data) {
-	int limit;
-	if (DISK_BLOCK_SIZE < bytesLeft) {
-		limit = DISK_BLOCK_SIZE;
-	} else {
-		limit = bytesLeft;
-	}
-	for (size_t i = bufferOffset; i < limit; i++) {
-		// Pode ser otimizado
-		buffer[i] = data[dataOffset++];
-		bytesLeft--;
-	}
-	return limit - bufferOffset;
-}
-
 
 int fs_write( int inumber, char *data, int length, int offset )
 {
@@ -413,7 +386,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 	}
 	disk_read(inode.direct[currentBlock], buff.data);
 	// Write block (pode ser fatorizado mas idk se nao seria mau para o desempenho wtv, para alem disso fica meio obfuscado
-	nCopy = writeDataInBuffer(buff.data, offsetInBlock, bytesToWrite, bytesLeft, src);
+	nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE, src, bytesToWrite, bytesLeft);
 	disk_write(inode.direct[currentBlock++], buff.data);
 	inode.size += nCopy;
 	bytesToWrite += nCopy;
@@ -430,7 +403,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 		inode.direct[currentBlock] = newEntry;
 		blockBitMap[newEntry] = NOT_FREE;
 		// Write block (pode ser fatorizado mas idk se nao seria mau para o desempenho wtv, para alem disso fica meio obfuscado
-		nCopy = writeDataInBuffer(buff.data, offsetInBlock, bytesToWrite, bytesLeft, src);
+		nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE, src, bytesToWrite, bytesLeft);
 		disk_write(inode.direct[currentBlock++], buff.data);
 		inode.size += nCopy;
 		bytesToWrite += nCopy;
