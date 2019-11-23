@@ -185,6 +185,9 @@ int fs_create()
 			if(!block.inode[inodeIndex].isvalid) {
 				block.inode[inodeIndex].isvalid = VALID;
 				block.inode[inodeIndex].size = 0;
+				for (size_t i = 0; i < POINTERS_PER_INODE; i++) {
+					block.inode[inodeIndex].direct[i] = 0;
+				}
 				disk_write(blockNumber, block.data);
 				return (blockNumber - NUM_SUPERBLOCKS) * INODES_PER_BLOCK + inodeIndex;
 			}
