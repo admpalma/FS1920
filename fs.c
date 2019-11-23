@@ -409,7 +409,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 	offsetInBlock = 0;
 
 	// Mid and End
-	while (bytesLeft > 0 && currentBlock > POINTERS_PER_INODE) {
+	while (bytesLeft > 0 && currentBlock < POINTERS_PER_INODE) {
 		newEntry = getFreeBlock();
 		if (newEntry == -1) {
 			return bytesToWrite;
@@ -423,7 +423,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 		bytesLeft -= nCopy;
 	}
 
-	if (currentBlock > POINTERS_PER_INODE) {
+	if (currentBlock > POINTERS_PER_INODE && bytesLeft > 0) {
 		// TODO idk se isto e suposto ser interpretado como erro
 		return -1;
 	}
