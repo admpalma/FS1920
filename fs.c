@@ -283,10 +283,54 @@ int fs_read( int inumber, char *data, int length, int offset )
 		printf("offset bigger that file size !\n");
 		return -1;
 	}
+	bytesToRead = 0;
+	bytesLeft = length;
+	currentBlock = offset / DISK_BLOCK_SIZE;
+	offsetInBlock = offset % DISK_BLOCK_SIZE;
+	nCopy = offset;
+	disk_read(inode.direct[currentBlock], &buff);
+	for (size_t i = offsetInBlock; i < DISK_BLOCK_SIZE && bytesLeft > 0 && nCopy < inode.size; i++) {
 
-	/* CODIGO A FAZER */
+		data[bytesToRead++] = buff.data[i];
+		bytesLeft--;
+		nCopy++;
+	}
+	offsetCurrent = offset - offsetInBlock;
+	disk_read(inode.direct[currentBlock++], &buff);
+	// Mid
+	while (bytesLeft > 0 && offsetCurrent > DISK_BLOCK_SIZE) {
+		if (currentBlock > POINTERS_PER_INODE) {
+			// TODO printf("starting to write after end of file\n");
+			return -1;
 
+		}
 
+		for (size_t i = 0; i < DISK_BLOCK_SIZE && bytesLeft > 0; i++) {
+
+			// Pode ser otimizado
+			data[bytesToRead++] = buff.data[i];
+			bytesLeft--;
+			nCopy++;
+		}
+		disk_read(inode.direct[currentBlock++], &buff);
+		offsetCurrent -= DISK_BLOCK_SIZE;
+	}
+
+	// End
+	if (currentBlock > POINTERS_PER_INODE) {
+
+		// TODO printf("starting to write after end of file\n");
+
+		return -1;
+
+	}
+		disk_read(inode.direct[currentBlock++], &buff);
+	for (size_t i = 0; i < offsetCurrent && bytesLeft > 0 && nCopy < inode.size; i++) {
+					// Pode ser otimizado
+					data[bytesToRead++] = buff.data[i];
+					bytesLeft--;
+					nCopy++;
+	}
 
 	return bytesToRead;
 }
@@ -340,10 +384,10 @@ int fs_write( int inumber, char *data, int length, int offset )
 	currentBlock = offset / DISK_BLOCK_SIZE;
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
 	disk_read(inode.direct[currentBlock], &buff);
-	for (size_t i = offsetInBlock; i < DISK_BLOCK_SIZE && bytesLeft > 0; i++) {
-		// Pode ser otimizado
-		buff.data[i] = data[bytesToWrite++];
-		bytesLeft--;
+	for (size_t i = offsetInBlock; i < DISK_BLOCK_SIZE && bytesLeft > 0; i++) {
+		// Pode ser otimizado
+		buff.data[i] = data[bytesToWrite++];
+		bytesLeft--;
 	}
 	disk_write(inode.direct[currentBlock++], &buff);
 	inode.size += DISK_BLOCK_SIZE - offsetInBlock;
@@ -351,19 +395,19 @@ int fs_write( int inumber, char *data, int length, int offset )
 
 	// Mid
 	while (bytesLeft > 0 && offsetCurrent > DISK_BLOCK_SIZE) {
-		if (currentBlock > POINTERS_PER_INODE) {
-			// TODO printf("starting to write after end of file\n");
-			return -1;
+		if (currentBlock > POINTERS_PER_INODE) {
+			// TODO printf("starting to write after end of file\n");
+			return -1;
 		}
 		newEntry = getFreeBlock();
-		if (newEntry == -1) {
-			return bytesToWrite;
+		if (newEntry == -1) {
+			return bytesToWrite;
 		}
 		inode.direct[currentBlock] = newEntry;
-		for (size_t i = 0; i < DISK_BLOCK_SIZE && bytesLeft > 0; i++) {
-			// Pode ser otimizado
-			buff.data[i] = data[bytesToWrite++];
-			bytesLeft--;
+		for (size_t i = 0; i < DISK_BLOCK_SIZE && bytesLeft > 0; i++) {
+			// Pode ser otimizado
+			buff.data[i] = data[bytesToWrite++];
+			bytesLeft--;
 		}
 		disk_write(inode.direct[currentBlock++], &buff);
 		inode.size += DISK_BLOCK_SIZE;
@@ -371,19 +415,19 @@ int fs_write( int inumber, char *data, int length, int offset )
 	}
 
 	// End
-	if (currentBlock > POINTERS_PER_INODE) {
-		// TODO printf("starting to write after end of file\n");
-		return -1;
+	if (currentBlock > POINTERS_PER_INODE) {
+		// TODO printf("starting to write after end of file\n");
+		return -1;
 	}
 	newEntry = getFreeBlock();
-	if (newEntry == -1) {
-		return bytesToWrite;
+	if (newEntry == -1) {
+		return bytesToWrite;
 	}
 	inode.direct[currentBlock] = newEntry;
-	for (size_t i = 0; i < offsetCurrent && bytesLeft > 0; i++) {
-		// Pode ser otimizado
-		buff.data[i] = data[bytesToWrite++];
-		bytesLeft--;
+	for (size_t i = 0; i < offsetCurrent && bytesLeft > 0; i++) {
+		// Pode ser otimizado
+		buff.data[i] = data[bytesToWrite++];
+		bytesLeft--;
 	}
 	disk_write(inode.direct[currentBlock++], &buff);
 	inode.size += offsetCurrent;
