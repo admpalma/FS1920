@@ -402,6 +402,15 @@ int fs_write( int inumber, char *data, int length, int offset )
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
 	src = data;
 
+	if (inode.size == 0) {
+		// Mais um que pode ser fatorizado mas oh well
+		newEntry = getFreeBlock();
+		if (newEntry == -1) {
+			return bytesToWrite;
+		}
+		inode.direct[currentBlock] = newEntry;
+		blockBitMap[newEntry] = NOT_FREE;
+	}
 	disk_read(inode.direct[currentBlock], buff.data);
 	// Write block (pode ser fatorizado mas idk se nao seria mau para o desempenho wtv, para alem disso fica meio obfuscado
 	nCopy = writeDataInBuffer(buff.data, offsetInBlock, bytesToWrite, bytesLeft, src);
@@ -413,11 +422,13 @@ int fs_write( int inumber, char *data, int length, int offset )
 
 	// Mid and End
 	while (bytesLeft > 0 && currentBlock < POINTERS_PER_INODE) {
+		// Mais um que pode ser fatorizado mas oh well
 		newEntry = getFreeBlock();
 		if (newEntry == -1) {
 			return bytesToWrite;
 		}
 		inode.direct[currentBlock] = newEntry;
+		blockBitMap[newEntry] = NOT_FREE;
 		// Write block (pode ser fatorizado mas idk se nao seria mau para o desempenho wtv, para alem disso fica meio obfuscado
 		nCopy = writeDataInBuffer(buff.data, offsetInBlock, bytesToWrite, bytesLeft, src);
 		disk_write(inode.direct[currentBlock++], buff.data);
