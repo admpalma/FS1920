@@ -20,7 +20,7 @@ struct fs_superblock {
 	unsigned int ninodes;
 };
 struct fs_superblock my_super;
-const int NUM_SUPERBLOCKS = 1;
+#define NUM_SUPERBLOCKS 1
 
 struct fs_inode {
 	unsigned int isvalid;
@@ -375,39 +375,24 @@ int fs_write( int inumber, char *data, int length, int offset )
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
 	src = data;
 
-	if (inode.size == 0) {
-		// Mais um que pode ser fatorizado mas oh well
-		newEntry = getFreeBlock();
-		if (newEntry == -1) {
-			return bytesToWrite;
-		}
-		inode.direct[currentBlock] = newEntry;
-		blockBitMap[newEntry] = NOT_FREE;
-	}
-	disk_read(inode.direct[currentBlock], buff.data);
-	// Write block (pode ser fatorizado mas idk se nao seria mau para o desempenho wtv, para alem disso fica meio obfuscado
-	nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE, src, bytesToWrite, bytesLeft);
-	disk_write(inode.direct[currentBlock++], buff.data);
-	inode.size += nCopy;
-	bytesToWrite += nCopy;
-	bytesLeft -= nCopy;
-	offsetInBlock = 0;
-
-	// Mid and End
+	// Start, Mid and End
 	while (bytesLeft > 0 && currentBlock < POINTERS_PER_INODE) {
-		// Mais um que pode ser fatorizado mas oh well
-		newEntry = getFreeBlock();
-		if (newEntry == -1) {
-			return bytesToWrite;
+		if (currentBlock > 0 || inode.size == 0) {
+			newEntry = getFreeBlock();
+			if (newEntry == -1) {
+				return bytesToWrite;
+			}
+			inode.direct[currentBlock] = newEntry;
+			blockBitMap[newEntry] = NOT_FREE;
+		} else {
+			disk_read(inode.direct[currentBlock], buff.data);
 		}
-		inode.direct[currentBlock] = newEntry;
-		blockBitMap[newEntry] = NOT_FREE;
-		// Write block (pode ser fatorizado mas idk se nao seria mau para o desempenho wtv, para alem disso fica meio obfuscado
-		nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE, src, bytesToWrite, bytesLeft);
+		nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock, src, bytesToWrite, bytesLeft);
 		disk_write(inode.direct[currentBlock++], buff.data);
 		inode.size += nCopy;
 		bytesToWrite += nCopy;
 		bytesLeft -= nCopy;
+		offsetInBlock = 0; // Wasteful mas oh well, not duping code
 	}
 
 	if (currentBlock > POINTERS_PER_INODE && bytesLeft > 0) {
