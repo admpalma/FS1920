@@ -33,7 +33,7 @@ int  fs_delete( int inumber );
 /*#Returns the size of the file inumber.
 Returns the length of the file associated with the i-node.
 In error, returns -1.*/
-int  fs_getsize(int number);
+int  fs_getsize(int inumber);
 
 /*#Reads length bytes, starting at offset, from file inode, and transfers the bytes to a buffer that starts on address data.
 Transfers data from a file (identified by a valid i-node) to memory.

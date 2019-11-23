@@ -83,34 +83,33 @@ int fs_format()
 
 void fs_debug()
 {
-	union fs_block block;
+	union fs_block sBlock;
+	union fs_block iBlock;
 	unsigned int i, j, k;
 
-	disk_read(0,block.data);
+	disk_read(0, sBlock.data);
 
-	if(block.super.magic != FS_MAGIC){
+	if (sBlock.super.magic != FS_MAGIC) {
 		printf("disk unformatted !\n");
 		return;
 	}
 	printf("superblock:\n");
-	printf("    %d blocks\n",block.super.nblocks);
-	printf("    %d inode blocks\n",block.super.ninodeblocks);
-	printf("    %d inodes\n",block.super.ninodes);
+	printf("    %d blocks\n", sBlock.super.nblocks);
+	printf("    %d inode blocks\n", sBlock.super.ninodeblocks);
+	printf("    %d inodes\n", sBlock.super.ninodes);
 
-	// this is to not fuck up for loop
-	unsigned int numInodes = block.super.ninodeblocks;
-	for( i = 1; i <= numInodes; i++){
-		disk_read( i, block.data );
-		for( j = 0; j < INODES_PER_BLOCK; j++)
-		if( block.inode[j].isvalid == VALID){
-			printf("-----\n inode: %d\n", (i-1)*INODES_PER_BLOCK + j);
-			printf("size: %d \n",block.inode[j].size);
-			printf("blocks:");
-			for( k = 0; k < POINTERS_PER_INODE; k++)
-			if (block.inode[j].direct[k]!=0)
-			printf("  %d",block.inode[j].direct[k]);
-			printf("\n");
-		}
+	for (i = 1; i <= sBlock.super.ninodeblocks; i++) {
+		disk_read(i, iBlock.data);
+		for (j = 0; j < INODES_PER_BLOCK; j++)
+			if (iBlock.inode[j].isvalid == VALID) {
+				printf("-----\n inode: %d\n", (i - 1) * INODES_PER_BLOCK + j);
+				printf("size: %d \n", iBlock.inode[j].size);
+				printf("blocks:");
+				for (k = 0; k < POINTERS_PER_INODE; k++)
+					if (iBlock.inode[j].direct[k] != 0)
+						printf("  %d", iBlock.inode[j].direct[k]);
+				printf("\n");
+			}
 	}
 }
 
@@ -207,17 +206,18 @@ void inode_load( int inumber, struct fs_inode *inode ){
 	*inode = block.inode[inumber % INODES_PER_BLOCK];
 }
 
-void inode_save( int inumber, struct fs_inode *inode ){
+void inode_save(int inumber, struct fs_inode* inode) {
 	int inodeBlock;
 	union fs_block block;
 
-	if( inumber > my_super.ninodes ){
+	if (inumber > my_super.ninodes) {
 		printf("inode number too big \n");
 		abort();
 	}
-	inodeBlock = 1 + (inumber/INODES_PER_BLOCK);
+	inodeBlock = 1 + (inumber / INODES_PER_BLOCK);
+	disk_read(inodeBlock, block.data);
 	block.inode[inumber % INODES_PER_BLOCK] = *inode;
-	disk_write( inodeBlock, block.data );
+	disk_write(inodeBlock, block.data);
 }
 
 int fs_delete( int inumber )
