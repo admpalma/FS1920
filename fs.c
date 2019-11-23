@@ -310,7 +310,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 			return bytesToRead;
 
 		}
-		for (size_t i = 0; i < DISK_BLOCK_SIZE && bytesLeft > 0; i++) {
+		for (size_t i = 0; i < DISK_BLOCK_SIZE && bytesLeft > 0 && nCopy < inode.size; i++) {
 			// Pode ser otimizado
 			data[bytesToRead++] = buff.data[i];
 			bytesLeft--;
