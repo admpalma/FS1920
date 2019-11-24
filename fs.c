@@ -48,37 +48,37 @@ struct fs_inode inode;
 
 int fs_format()
 {
-	union fs_block block;
-	unsigned int i, nblocks, ninodeblocks;
+  union fs_block block;
+  unsigned int i, nblocks;
 
-	if(my_super.magic == FS_MAGIC){
-		printf("Cannot format a mounted disk!\n");
-		return -1;
-	}
-	nblocks = disk_size();
-	block.super.magic = FS_MAGIC;
-	block.super.nblocks = nblocks;
-	block.super.ninodeblocks = (int)ceil((float)nblocks*0.1);
-	block.super.ninodes = block.super.ninodeblocks * INODES_PER_BLOCK;
+  if(my_super.magic == FS_MAGIC){
+    printf("Cannot format a mounted disk!\n");
+    return -1;
+  }
+  nblocks = disk_size();
+  block.super.magic = FS_MAGIC;
+  block.super.nblocks = nblocks;
+  block.super.ninodeblocks = (int)ceil((float)nblocks*0.1);
+  block.super.ninodes = block.super.ninodeblocks * INODES_PER_BLOCK;
 
-	printf("superblock:\n");
-	printf("    %d blocks\n",block.super.nblocks);
-	printf("    %d inode blocks\n",block.super.ninodeblocks);
-	printf("    %d inodes\n",block.super.ninodes);
+  printf("superblock:\n");
+  printf("    %d blocks\n",block.super.nblocks);
+  printf("    %d inode blocks\n",block.super.ninodeblocks);
+  printf("    %d inodes\n",block.super.ninodes);
 
-	/* escrita do superbloco */
-	disk_write(0,block.data);
-	ninodeblocks = block.super.ninodeblocks;
+  /* escrita do superbloco */
+  disk_write(0,block.data);
 
-	/* prepara��o da tabela de inodes */
-	for( i = 0; i < INODES_PER_BLOCK; i++ )
-	block.inode[i].isvalid = NON_VALID;
+  /* preparacao da tabela de inodes */
+  bzero( block.data, DISK_BLOCK_SIZE);
+  for( i = 0; i < INODES_PER_BLOCK; i++ )
+    block.inode[i].isvalid = NON_VALID;
 
-	/* escrita da tabela de inodes */
-	for( i = 1; i <= ninodeblocks; i++)
-	disk_write( i, block.data );
+  /* escrita da tabela de inodes */
+  for( i = 1; i <= block.super.ninodeblocks; i++)
+    disk_write( i, block.data );
 
-	return 0;
+  return 0;
 }
 
 void fs_debug()
