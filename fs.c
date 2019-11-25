@@ -50,6 +50,7 @@ int fs_format()
 {
   union fs_block block;
   unsigned int i, nblocks;
+  int ninodeblocks;
 
   if(my_super.magic == FS_MAGIC){
     printf("Cannot format a mounted disk!\n");
@@ -58,7 +59,8 @@ int fs_format()
   nblocks = disk_size();
   block.super.magic = FS_MAGIC;
   block.super.nblocks = nblocks;
-  block.super.ninodeblocks = (int)ceil((float)nblocks*0.1);
+  ninodeblocks = (int)ceil((float)nblocks*0.1);
+  block.super.ninodeblocks = ninodeblocks;
   block.super.ninodes = block.super.ninodeblocks * INODES_PER_BLOCK;
 
   printf("superblock:\n");
@@ -75,7 +77,7 @@ int fs_format()
     block.inode[i].isvalid = NON_VALID;
 
   /* escrita da tabela de inodes */
-  for( i = 1; i <= block.super.ninodeblocks; i++)
+  for( i = 1; i <= ninodeblocks; i++)
     disk_write( i, block.data );
 
   return 0;
