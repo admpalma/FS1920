@@ -9,6 +9,8 @@
 
 #define DISK_MAGIC 0xf0f03410
 
+#define FREE_BLOCK -1
+
 static FILE *diskfile;
 static int nblocks;
 static int nreads;
@@ -75,6 +77,59 @@ static void sanity_check( int blocknum, const void *data )
 	}
 }
 
+/*Returns the index of a cache_entry in cache with a matching blocknum,
+-1 if there's no such entry in the cache
+(If blockNum == -1 then this function will search for a free entry in cache).*/
+int getCacheEntry(int blocknum) {
+	int i = 0;
+	do {
+		if (cache[i++].disk_block_number == blocknum) {
+			return --i;
+		}
+	} while (i < cache_nblocks);
+	return -1;
+}
+
+/*Writes data from the cache at cacheIndex in the given buffer.*/
+void writeFromCacheToBuffer(int cacheIndex, char* buffer) {
+	for (size_t i = 0; i < DISK_BLOCK_SIZE; i++) {
+		buffer[i] = cache[cacheIndex].datab->data[i];
+	}
+}
+
+/*Writes data from the given buffer in the cache at cacheIndex.*/
+void writeFromCacheToBuffer(int cacheIndex, char* buffer) {
+	cache[cacheIndex].dirty_bit = 1;
+	for (size_t i = 0; i < DISK_BLOCK_SIZE; i++) {
+		cache[cacheIndex].datab->data[i] = buffer[i];
+	}
+}
+
+/*Sets a new entry in cache for the block at blocknum in disk.
+Returns the cacheIndex in which the new entry was stored.*/
+int setNewEntryForBlock(int blocknum) {
+	int cacheIndex = getCacheEntry(FREE_BLOCK);
+	if (cacheIndex == -1) {
+		cacheIndex = rand() % cache_nblocks;
+		disk_flush_block(cacheIndex);
+	}
+	setNewCacheEntry(cacheIndex, blocknum);
+	return cacheIndex;
+}
+
+/*Sets a new entry in cache at cacheIndex for the block at blocknum in disk.*/
+void setNewCacheEntry(int cacheIndex, int blocknum) {
+	cache[cacheIndex].dirty_bit = 0;
+	cache[cacheIndex].disk_block_number = blocknum;
+	cache[cacheIndex].datab = &cache_data[cacheIndex];
+}
+
+/*Flushes the contents of a cache block at cacheIndex into disk*/
+void disk_flush_block(int cacheIndex) {
+	disk_write(cache[cacheIndex].disk_block_number, cache[cacheIndex].datab->data);
+	cache[cacheIndex].dirty_bit = 0;
+}
+
 void disk_read( int blocknum, char *data )
 {
 	sanity_check(blocknum,data);
@@ -89,6 +144,19 @@ void disk_read( int blocknum, char *data )
 	}
 }
 
+void disk_read_data(int blocknum, char* data) {
+	sanity_check(blocknum, data);
+	int cacheIndex = getCacheEntry(blocknum);
+	if (cacheIndex != -1) {
+		writeFromCacheToBuffer(cacheIndex, data);
+	} else {
+		cacheIndex = setNewEntryForBlock(blocknum);
+		disk_read(blocknum, cache[cacheIndex].datab->data);
+		writeFromCacheToBuffer(cacheIndex, data);
+	}
+}
+
+
 void disk_write( int blocknum, const char *data )
 {
 	sanity_check(blocknum,data);
@@ -100,6 +168,17 @@ void disk_write( int blocknum, const char *data )
 	} else {
 		printf("ERROR: couldn't access simulated disk: %s\n",strerror(errno));
 		abort();
+	}
+}
+
+void disk_write_data(int blocknum, char* data) {
+	sanity_check(blocknum, data);
+	int cacheIndex = getCacheEntry(blocknum);
+	if (cacheIndex != -1) {
+		writeFromCacheToBuffer(cacheIndex, data);
+	} else {
+		cacheIndex = setNewEntryForBlock(blocknum);
+		writeFromBufferToCache(cacheIndex, data);
 	}
 }
 
