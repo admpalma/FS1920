@@ -14,6 +14,23 @@ static int nblocks;
 static int nreads;
 static int nwrites;
 
+typedef struct __cache_entry {
+	int disk_block_number;	// identifies the block number in disk or -1 for a free entry
+	unsigned int dirty_bit; // this value is 1 if the block has been written, 0 otherwise
+	cache_block* datab;			// a pointer to a disk data block cached in memory
+} cache_entry;
+
+cache_entry* cache;
+
+typedef struct cache_block {
+	char data[DISK_BLOCK_SIZE];
+} cache_block;
+
+cache_block* cache_data;
+
+int cache_nblocks;
+
+
 int disk_init( const char *filename, int n )
 {
 	diskfile = fopen(filename,"r+");
@@ -27,6 +44,10 @@ int disk_init( const char *filename, int n )
 	nblocks = n;
 	nreads = 0;
 	nwrites = 0;
+
+	cache_nblocks = (int)ceil((float)nblocks * 0.2);
+	cache = (cache_entry*)malloc(sizeof(cache_entry) * nblocks);
+	cache_data = (cache_block*)malloc(sizeof(cache_block) * nblocks);
 
 	return 1;
 }
