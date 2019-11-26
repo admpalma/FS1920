@@ -22,6 +22,9 @@ void disk_write( int blocknum, const char *data );
 /*Function that uses the cache whenever a data block has to be written on disk.*/
 void disk_write_data(int blocknum, char* data);
 
+/*Function that flushes all the dirty data blocks in the cache onto disk*/
+void disk_flush();
+
 /*Function to be called at the end of the program.*/
 void disk_close();
 

@@ -182,6 +182,14 @@ void disk_write_data(int blocknum, char* data) {
 	}
 }
 
+void disk_flush() {
+	for (size_t cacheIndex = 0; cacheIndex < cache_nblocks; cacheIndex++) {
+		if (cache->dirty_bit == 1) {
+			disk_flush_block(cacheIndex);
+		}
+	}
+}
+
 void disk_close()
 {
 	if(diskfile) {
