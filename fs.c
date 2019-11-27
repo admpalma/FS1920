@@ -358,8 +358,9 @@ int getFreeBlock(){
 
 int fs_write( int inumber, char *data, int length, int offset )
 {
-	int currentBlock, originalNBlocks, offsetInBlock;
+	int currentBlock, offsetInBlock;
 	int bytesLeft, nCopy, bytesToWrite, newEntry;
+	int originalNBlocks;
 	char *src;
 	union fs_block buff;
 
@@ -384,7 +385,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
 	src = data;
 
-	originalNBlocks = inode.size / DISK_BLOCK_SIZE;
+	originalNBlocks = (inode.size / DISK_BLOCK_SIZE) - 1;
 	if (inode.size % DISK_BLOCK_SIZE > 0) {
 		originalNBlocks++;
 	}
@@ -394,6 +395,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 		if (currentBlock > originalNBlocks || inode.size == 0) {
 			newEntry = getFreeBlock();
 			if (newEntry == -1) {
+				inode_save(inumber, &inode);
 				return bytesToWrite;
 			}
 			inode.direct[currentBlock] = newEntry;
@@ -402,16 +404,22 @@ int fs_write( int inumber, char *data, int length, int offset )
 		}
 		nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock, src, bytesToWrite, bytesLeft);
 		disk_write(inode.direct[currentBlock++], buff.data);
+		if (currentBlock - 1 == originalNBlocks) {
+			inode.size -= (inode.size % DISK_BLOCK_SIZE) - offsetInBlock;
+		}
+		if (currentBlock - 1 < originalNBlocks) {
+			inode.size -= DISK_BLOCK_SIZE - offsetInBlock;
+		}
 		inode.size += nCopy;
 		bytesToWrite += nCopy;
 		bytesLeft -= nCopy;
 		offsetInBlock = 0; // Wasteful mas oh well, not duping code
 	}
 
-	if (currentBlock > POINTERS_PER_INODE && bytesLeft > 0) {
+	/*if (currentBlock <= POINTERS_PER_INODE && bytesLeft > 0) {
 		// TODO idk se isto e suposto ser interpretado como erro
 		return -1;
-	}
+	}*/
 	inode_save( inumber, &inode );
 	return bytesToWrite;
 }
