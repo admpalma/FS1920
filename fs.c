@@ -159,7 +159,11 @@ int fs_mount()
 			if(block.inode[j].isvalid) {
 
 				//Finds the number of blocks used by inode
-				int pointToBlock = block.inode[j].size / DISK_BLOCK_SIZE;
+				int pointToBlock = (block.inode[j].size / DISK_BLOCK_SIZE);
+				int remainder = block.inode[j].size % DISK_BLOCK_SIZE;
+				if (remainder != 0) {
+					pointToBlock++;
+				}
 
 				//Registers which blocks are NOT_FREE
 				for (int k = 0; k < pointToBlock; k++) {
@@ -237,6 +241,9 @@ int fs_delete( int inumber )
 	}
 
 	inode_load(inumber, &inode);
+	if (inode.isvalid == NON_VALID) {
+		return -1;
+	}
 
 	//Number of blocks occupied of the file
 	int numBlocks = (int)ceil((float)inode.size/DISK_BLOCK_SIZE);
@@ -351,7 +358,7 @@ int getFreeBlock(){
 
 int fs_write( int inumber, char *data, int length, int offset )
 {
-	int currentBlock, offsetCurrent, offsetInBlock;
+	int currentBlock, originalNBlocks, offsetInBlock;
 	int bytesLeft, nCopy, bytesToWrite, newEntry;
 	char *src;
 	union fs_block buff;
@@ -377,15 +384,19 @@ int fs_write( int inumber, char *data, int length, int offset )
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
 	src = data;
 
+	originalNBlocks = inode.size / DISK_BLOCK_SIZE;
+	if (inode.size % DISK_BLOCK_SIZE > 0) {
+		originalNBlocks++;
+	}
+
 	// Start, Mid and End
 	while (bytesLeft > 0 && currentBlock < POINTERS_PER_INODE) {
-		if (currentBlock > 0 || inode.size == 0) {
+		if (currentBlock > originalNBlocks || inode.size == 0) {
 			newEntry = getFreeBlock();
 			if (newEntry == -1) {
 				return bytesToWrite;
 			}
 			inode.direct[currentBlock] = newEntry;
-			blockBitMap[newEntry] = NOT_FREE;
 		} else {
 			disk_read(inode.direct[currentBlock], buff.data);
 		}
