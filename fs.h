@@ -51,4 +51,8 @@ Returns the number of bytes really written to the file; this number of written b
 In case of other errors, returns -1.*/
 int  fs_write( int inumber, char *data, int length, int offset );
 
+int fs_flush( int inumber );
+
+int fs_close( int inumber );
+
 #endif

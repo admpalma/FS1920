@@ -321,7 +321,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 
 	// Start, Mid and End
 	while (inode.size - offsetCurrent > 0) {
-		disk_read(inode.direct[currentBlock++], buff.data);
+		disk_read_data(inode.direct[currentBlock++], buff.data);
 		nCopy = writeDataInBuffer(dst, bytesToRead, min(bytesLeft, inode.size - offsetCurrent), buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock);
 		bytesToRead += nCopy;
 		bytesLeft -= nCopy;
@@ -387,10 +387,10 @@ int fs_write( int inumber, char *data, int length, int offset )
 			inode.direct[currentBlock] = newEntry;
 			blockBitMap[newEntry] = NOT_FREE;
 		} else {
-			disk_read(inode.direct[currentBlock], buff.data);
+			disk_read_data(inode.direct[currentBlock], buff.data);
 		}
 		nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock, src, bytesToWrite, bytesLeft);
-		disk_write(inode.direct[currentBlock++], buff.data);
+		disk_write_data(inode.direct[currentBlock++], buff.data);
 		inode.size += nCopy;
 		bytesToWrite += nCopy;
 		bytesLeft -= nCopy;
@@ -403,4 +403,24 @@ int fs_write( int inumber, char *data, int length, int offset )
 	}
 	inode_save( inumber, &inode );
 	return bytesToWrite;
+}
+
+int fs_flush( int inumber ) {
+
+	if (inumber > my_super.ninodes) {
+		printf("inode number too big \n");
+		abort();
+
+	inode_load( inumber, &inode );
+
+int numBlocks = (int)ceil((float)inode.size/DISK_BLOCK_SIZE);
+
+	for(int i = 0; i< blocks_written; i++) {
+		disk_update_block(inode.direct[i]);
+	}
+}
+
+
+int fs_close( int inumber ) {
+	fs_flush(inumber);
 }
