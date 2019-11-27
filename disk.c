@@ -38,7 +38,7 @@ int disk_init( const char *filename, int n )
 	diskfile = fopen(filename,"r+");
 	if(diskfile==NULL)
 		diskfile = fopen(filename,"w+");
-	if(diskfile==NULL) 
+	if(diskfile==NULL)
 		return 0;
 
 	ftruncate(fileno(diskfile),n*DISK_BLOCK_SIZE);
@@ -130,6 +130,16 @@ void disk_flush_block(int cacheIndex) {
 	cache[cacheIndex].dirty_bit = 0;
 }
 
+/*Flushes the contents of a cache block at cacheIndex into disk*/
+void disk_update_block(int blocknum) {
+
+	int cacheIndex = getCacheEntry(blocknum);
+	if (cacheIndex != -1) {
+		disk_flush_block(cacheIndex);
+	}
+
+}
+
 void disk_read( int blocknum, char *data )
 {
 	sanity_check(blocknum,data);
@@ -193,10 +203,10 @@ void disk_flush() {
 void disk_close()
 {
 	if(diskfile) {
+		disk_flush();
 		printf("%d disk block reads\n",nreads);
 		printf("%d disk block writes\n",nwrites);
 		fclose(diskfile);
 		diskfile = NULL;
 	}
 }
-
