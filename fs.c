@@ -327,7 +327,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 	offsetCurrent = offset;
 
 	// Start, Mid and End
-	while (inode.size - offsetCurrent > 0) {
+	while (inode.size - offsetCurrent > 0 && bytesLeft > 0) {
 		disk_read(inode.direct[currentBlock++], buff.data);
 		nCopy = writeDataInBuffer(dst, bytesToRead, min(bytesLeft, inode.size - offsetCurrent), buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock);
 		bytesToRead += nCopy;
