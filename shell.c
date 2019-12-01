@@ -8,6 +8,7 @@
 
 static int do_copyin( const char *filename, int inumber );
 static int do_copyout( int inumber, const char *filename );
+// static int do_insert( const char *filename, int inumber, int at_offset );
 
 int main( int argc, char *argv[] )
 {
@@ -15,6 +16,7 @@ int main( int argc, char *argv[] )
 	char cmd[1024];
 	char arg1[1024];
 	char arg2[1024];
+ // 	char arg3[1024];
 	int inumber, result, args;
 
 	if(argc!=3) {
@@ -39,6 +41,7 @@ int main( int argc, char *argv[] )
 		line[strlen(line)-1] = (char)0;
 
 		args = sscanf(line,"%s %s %s",cmd,arg1,arg2);
+		// args = sscanf(line,"%s %s %s %s",cmd,arg1,arg2,arg3);
 		if(args==0) continue;
 
 		if(!strcmp(cmd,"format")) {
@@ -67,11 +70,17 @@ int main( int argc, char *argv[] )
 			} else {
 				printf("use: debug\n");
 			}
+		} else if(!strcmp(cmd,"cachedebug")) {
+			if(args==1) {
+				cache_debug();
+			} else {
+				printf("use: cachedebug\n");
+			}
 		} else if(!strcmp(cmd,"getsize")) {
 			if(args==2) {
 				inumber = atoi(arg1);
 				result = fs_getsize(inumber);
-				if(!result) {
+				if( result >= 0 )	{	
 					printf("inode %d has size %d\n",inumber,result);
 				} else {
 					printf("getsize failed!\n");
@@ -111,7 +120,6 @@ int main( int argc, char *argv[] )
 			} else {
 				printf("use: cat <inumber>\n");
 			}
-
 		} else if(!strcmp(cmd,"copyin")) {
 			if(args==3) {
 				inumber = atoi(arg2);
@@ -122,9 +130,22 @@ int main( int argc, char *argv[] )
 				}
 			} else {
 				printf("use: copyin <filename> <inumber>\n");
+			} 
+		}
+		/* // in case you may want to test data insertion/overwrite at a specific position in a file
+		else if(!strcmp(cmd,"insertinfile")) {
+			if(args==4) {
+				inumber = atoi(arg2);
+				if(do_insert(arg1, inumber, atoi(arg3))>0) {
+					printf("inserted file %s to inode %d in position %s\n",arg1,inumber,arg3);
+				} else {
+					printf("insert failed!\n");
+				}
+			} else {
+				printf("use: insertinfile <filename> <inumber>  <offset>\n");
 			}
-
-		} else if(!strcmp(cmd,"copyout")) {
+		}  */
+		else if(!strcmp(cmd,"copyout")) {
 			if(args==3) {
 				inumber = atoi(arg1);
 				if(do_copyout(inumber,arg2)>=0) {
@@ -135,17 +156,25 @@ int main( int argc, char *argv[] )
 			} else {
 				printf("use: copyout <inumber> <filename>\n");
 			}
-
+		} else if(!strcmp(cmd,"diskflush")) {
+			if(args==1) {
+				disk_flush();
+			} else {
+				printf("use: diskflush\n");
+			}
 		} else if(!strcmp(cmd,"help")) {
 			printf("Commands are:\n");
 			printf("    format\n");
 			printf("    mount\n");
 			printf("    debug\n");
+			printf("    cachedebug\n" );
 			printf("    create\n");
 			printf("    delete  <inode>\n");
 			printf("    cat     <inode>\n");
 			printf("    copyin  <file> <inode>\n");
 			printf("    copyout <inode> <file>\n");
+			// printf("    insertinfile <file> <inode> <offset>\n");
+			printf("    diskflush\n");
 			printf("    help\n");
 			printf("    quit\n");
 			printf("    exit\n");
@@ -170,7 +199,8 @@ static int do_copyin( const char *filename, int inumber )
 {
 	FILE *file;
 	int offset=0, result, actual;
-	char buffer[16384];
+	//char buffer[16384];
+	char buffer[100];
 
 	file = fopen(filename,"r");
 	if(!file) {
@@ -198,14 +228,17 @@ static int do_copyin( const char *filename, int inumber )
 	printf("%d bytes copied\n",offset);
 
 	fclose(file);
+	fs_close(inumber);
 	return 1;
 }
+
 
 static int do_copyout( int inumber, const char *filename )
 {
 	FILE *file;
 	int offset=0, result;
-	char buffer[16384];
+	//char buffer[16384];
+	char buffer[100];
 
 	file = fopen(filename,"w");
 	if(!file) {
@@ -223,6 +256,50 @@ static int do_copyout( int inumber, const char *filename )
 	printf("%d bytes copied\n",offset);
 
 	fclose(file);
+	fs_close(inumber);
 	return 1;
 }
+
+
+/*
+static int do_insert( const char *filename, int inumber, int at_offset )
+{
+	FILE *file;
+	int offset= at_offset, result, actual;
+	char buffer[500];
+
+	file = fopen(filename,"r");
+	if(!file) {
+		printf("couldn't open %s: %s\n",filename,strerror(errno));
+		return 0;
+	}
+
+	while(1) {
+		result = fread(buffer,1,sizeof(buffer),file);
+#ifdef DEBUG
+		printf("file size:%d\n", result);
+#endif
+		if(result<=0) break;
+		if(result>0) {
+			actual = fs_write(inumber,buffer,result,offset);
+			if(actual<0) {
+				printf("ERROR: fs_write return invalid result %d\n",actual);
+				break;
+			}
+			offset += actual;
+		}
+	}
+
+	printf("%d bytes copied\n",offset);
+
+	fclose(file);
+	// fs_close(inumber);
+	return 1;
+}
+*/
+
+
+
+
+
 

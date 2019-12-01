@@ -1,92 +1,109 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <math.h>
 
 #include "disk.h"
 
+// define DEBUG for messages about all written blocks
+// #define DEBUG
+
 #define DISK_MAGIC 0xf0f03410
 
-#define FREE_BLOCK -1
-
 static FILE *diskfile;
-static int nblocks;
-static int nreads;
-static int nwrites;
+static int nblocks = 0;
+static int nreads = 0;
+static int nwrites = 0;
 
+// Data structures for the cache
+typedef struct __cache_memory {
+	char data[DISK_BLOCK_SIZE];
+} cache_memory;
+
+cache_memory* cache_data;	// cache data space
+
+#define FREE_BLOCK -1
 typedef struct __cache_entry {
-	int disk_block_number;	// identifies the block number in disk or -1 for a free entry
-	unsigned int dirty_bit; // this value is 1 if the block has been written, 0 otherwise
-	cache_block* datab;			// a pointer to a disk data block cached in memory
+	int disk_block_number;  // identifies the block number in disk
+	int dirty_bit;   // this value is 1 if the block has been written, 0 otherwise
+	cache_memory* datab;    // a pointer to a disk data block cached in memory
 } cache_entry;
 
-cache_entry* cache;
+cache_entry* cache;	// cache metadata
 
-typedef struct cache_block {
-	char data[DISK_BLOCK_SIZE];
-} cache_block;
+static int cache_nblocks = 0;
+static int cachehits = 0;
+static int cachemisses = 0;
 
-cache_block* cache_data;
+int disk_init( const char *filename, int n ) {
+    diskfile = fopen( filename, "r+" );
+    if ( diskfile != NULL && n == -1 ) {
+        fseek( diskfile, 0L, SEEK_END );
+        n = ftell( diskfile );
+        fprintf( stderr, "filesize=%d, %d\n", n, n / DISK_BLOCK_SIZE );
+        n = n / DISK_BLOCK_SIZE;
+    }
+    if ( !diskfile )
+        diskfile = fopen( filename, "w+" );
+    if ( !diskfile )
+        return 0;
 
-int cache_nblocks;
+    ftruncate( fileno( diskfile ), n * DISK_BLOCK_SIZE );
 
-
-int disk_init( const char *filename, int n )
-{
-	diskfile = fopen(filename,"r+");
-	if(diskfile==NULL)
-		diskfile = fopen(filename,"w+");
-	if(diskfile==NULL)
-		return 0;
-
-	ftruncate(fileno(diskfile),n*DISK_BLOCK_SIZE);
-
-	nblocks = n;
-	nreads = 0;
-	nwrites = 0;
+    nblocks = n;
+    nreads = 0;
+    nwrites = 0;
 
 	cache_nblocks = (int)ceil((float)nblocks * 0.2);
-	cache = (cache_entry*)malloc(sizeof(cache_entry) * nblocks);
-	cache_data = (cache_block*)malloc(sizeof(cache_block) * nblocks);
+  	cache = (cache_entry*)malloc(sizeof(cache_entry) * nblocks);
+  	cache_data = (cache_memory*)malloc(sizeof(cache_memory) * nblocks);
 
-	return 1;
+#ifdef DEBUG
+    printf( "Cache blocks %d\n", cache_nblocks );
+#endif
+
+
+    srand( 0 );	// to generate always the same sequence of blocks to evict
+
+    return 1;
 }
 
-int disk_size()
-{
-	return nblocks;
+int disk_size( ) {
+    return nblocks;
 }
 
-static void sanity_check( int blocknum, const void *data )
-{
-	if(blocknum<0) {
-		printf("ERROR: blocknum (%d) is negative!\n",blocknum);
-		abort();
-	}
+static void sanity_check( int blocknum, const void *data ) {
+    if (blocknum < 0) {
+        printf( "ERROR: blocknum (%d) is negative!\n", blocknum );
+        abort();
+    }
 
-	if(blocknum>=nblocks) {
-		printf("ERROR: blocknum (%d) is too big!\n",blocknum);
-		abort();
-	}
+    if (blocknum >= nblocks) {
+        printf( "ERROR: blocknum (%d) is too big!\n", blocknum );
+        abort();
+    }
 
-	if(data==NULL) {
-		printf("ERROR: null data pointer!\n");
-		abort();
-	}
+    if (!data) {
+        printf( "ERROR: null data pointer!\n" );
+        abort();
+    }
 }
 
-/*Returns the index of a cache_entry in cache with a matching blocknum,
+/* Searches the cache for a block; returns its position in the cache or -1 otherwise
+
+Returns the index of a cache_entry in cache with a matching blocknum,
 -1 if there's no such entry in the cache
 (If blockNum == -1 then this function will search for a free entry in cache).*/
-int getCacheEntry(int blocknum) {
-	int i = 0;
+int search_cache(int data_block_num)
+{
+	int entry_num = 0;
 	do {
-		if (cache[i++].disk_block_number == blocknum) {
-			return --i;
+		if (cache[entry_num++].disk_block_number == data_block_num) {
+			return --entry_num;
 		}
-	} while (i < cache_nblocks);
+	} while (entry_num < cache_nblocks);
 	return -1;
 }
 
@@ -98,30 +115,28 @@ void writeFromCacheToBuffer(int cacheIndex, char* buffer) {
 }
 
 /*Writes data from the given buffer in the cache at cacheIndex.*/
-void writeFromCacheToBuffer(int cacheIndex, char* buffer) {
+void writeFromBufferToCache(int cacheIndex, const char* buffer) {
 	cache[cacheIndex].dirty_bit = 1;
 	for (size_t i = 0; i < DISK_BLOCK_SIZE; i++) {
 		cache[cacheIndex].datab->data[i] = buffer[i];
 	}
 }
 
-/*Sets a new entry in cache for the block at blocknum in disk.
-Returns the cacheIndex in which the new entry was stored.*/
-int setNewEntryForBlock(int blocknum) {
-	int cacheIndex = getCacheEntry(FREE_BLOCK);
-	if (cacheIndex == -1) {
-		cacheIndex = rand() % cache_nblocks;
-		disk_flush_block(cacheIndex);
-	}
-	setNewCacheEntry(cacheIndex, blocknum);
-	return cacheIndex;
-}
+int entry_selection();
 
 /*Sets a new entry in cache at cacheIndex for the block at blocknum in disk.*/
 void setNewCacheEntry(int cacheIndex, int blocknum) {
 	cache[cacheIndex].dirty_bit = 0;
 	cache[cacheIndex].disk_block_number = blocknum;
 	cache[cacheIndex].datab = &cache_data[cacheIndex];
+}
+
+/*Sets a new entry in cache for the block at blocknum in disk.
+Returns the cacheIndex in which the new entry was stored.*/
+int setNewEntryForBlock(int blocknum) {
+	int cacheIndex = entry_selection();
+	setNewCacheEntry(cacheIndex, blocknum);
+	return cacheIndex;
 }
 
 /*Flushes the contents of a cache block at cacheIndex into disk*/
@@ -133,30 +148,68 @@ void disk_flush_block(int cacheIndex) {
 /*Flushes the contents of a cache block at cacheIndex into disk*/
 void disk_update_block(int blocknum) {
 
-	int cacheIndex = getCacheEntry(blocknum);
+	int cacheIndex = search_cache(blocknum);
 	if (cacheIndex != -1) {
 		disk_flush_block(cacheIndex);
 	}
 
 }
 
-void disk_read( int blocknum, char *data )
-{
-	sanity_check(blocknum,data);
+void disk_read( int blocknum, char *data ) {
+    sanity_check( blocknum, data );
 
-	fseek(diskfile,blocknum*DISK_BLOCK_SIZE,SEEK_SET);
+    if ( fseek( diskfile, blocknum * DISK_BLOCK_SIZE, SEEK_SET )<0 )
+        perror("disk_read seek");
 
-	if(fread(data,DISK_BLOCK_SIZE,1,diskfile)==1) {
-		nreads++;
-	} else {
-		printf("ERROR: couldn't access simulated disk: %s\n",strerror(errno));
-		abort();
-	}
+    if (fread( data, DISK_BLOCK_SIZE, 1, diskfile ) == 1) {
+        nreads++;
+    } else {
+        printf( "ERROR: couldn't access simulated disk: %s\n",
+                strerror( errno ) );
+        abort();
+    }
 }
 
-void disk_read_data(int blocknum, char* data) {
-	sanity_check(blocknum, data);
-	int cacheIndex = getCacheEntry(blocknum);
+void disk_write( int blocknum, const char *data ) {
+#ifdef DEBUG
+    printf( "Writing block %d\n", blocknum );
+#endif
+    sanity_check( blocknum, data );
+
+    if ( fseek( diskfile, blocknum * DISK_BLOCK_SIZE, SEEK_SET )<0 )
+        perror("disk_write seek");
+
+    if ( fwrite( data, DISK_BLOCK_SIZE, 1, diskfile ) == 1) {
+        nwrites++;
+    } else {
+        printf( "ERROR: couldn't access simulated disk: %s\n",
+                strerror( errno ) );
+        abort();
+    }
+}
+
+// allocates a cache_entry where to place the new block
+int entry_selection()
+{
+	// TODO
+	// note: the function rand() generates a random number
+	int entry_num = search_cache(FREE_BLOCK);
+	if (entry_num == -1) {
+		entry_num = rand() % cache_nblocks;
+		disk_flush_block(entry_num);
+	}
+	return entry_num;
+}
+
+// Cache aware read
+void disk_read_data( int blocknum, char *data ) {
+ 	sanity_check( blocknum, data );
+	int cacheIndex;
+#ifdef DEBUG
+    printf( "disk_read_data for block %d \n", blocknum );
+#endif
+
+	cacheIndex = search_cache(blocknum);
 	if (cacheIndex != -1) {
 		writeFromCacheToBuffer(cacheIndex, data);
 	} else {
@@ -166,32 +219,35 @@ void disk_read_data(int blocknum, char* data) {
 	}
 }
 
+// Cache aware write
+void disk_write_data(int blocknum, const char* data) {
+	sanity_check( blocknum, data );
 
-void disk_write( int blocknum, const char *data )
-{
-	sanity_check(blocknum,data);
-
-	fseek(diskfile,blocknum*DISK_BLOCK_SIZE,SEEK_SET);
-
-	if(fwrite(data,DISK_BLOCK_SIZE,1,diskfile)==1) {
-		nwrites++;
-	} else {
-		printf("ERROR: couldn't access simulated disk: %s\n",strerror(errno));
-		abort();
-	}
-}
-
-void disk_write_data(int blocknum, char* data) {
-	sanity_check(blocknum, data);
-	int cacheIndex = getCacheEntry(blocknum);
+#ifdef DEBUG
+	printf( "disk_write_data for block %d \n", blocknum );
+#endif
+	int cacheIndex = search_cache(blocknum);
 	if (cacheIndex != -1) {
-		writeFromCacheToBuffer(cacheIndex, data);
+		writeFromBufferToCache(cacheIndex, data);
 	} else {
 		cacheIndex = setNewEntryForBlock(blocknum);
 		writeFromBufferToCache(cacheIndex, data);
 	}
 }
 
+// Writes the cache's metadata
+void cache_debug() {
+	for( int i = 0; i < cache_nblocks; i++ ) {
+    	// TODO
+		printf("Cache block: %d\n\n", i);
+		printf("	disk_block_number: %d\n", cache->disk_block_number);
+		printf("	dirty_bit: %d\n", cache->dirty_bit);
+		//printf("	datab: %d\n\n", &cache->datab);
+	}
+}
+
+
+// flushes the modified data blocks to disk
 void disk_flush() {
 	for (size_t cacheIndex = 0; cacheIndex < cache_nblocks; cacheIndex++) {
 		if (cache->dirty_bit == 1) {
@@ -200,13 +256,21 @@ void disk_flush() {
 	}
 }
 
-void disk_close()
-{
-	if(diskfile) {
+
+void disk_close( ) {
+	if (diskfile)  {
+		// TODO: flushes the cache and frees the allocated memory
 		disk_flush();
-		printf("%d disk block reads\n",nreads);
-		printf("%d disk block writes\n",nwrites);
-		fclose(diskfile);
-		diskfile = NULL;
+		free(cache);
+		free(cache_data);
+		// Writes statistics
+		printf( "%d disk block reads\n", nreads );
+  		printf( "%d disk block writes\n", nwrites );
+		printf( "%d cache hits, %d cache misses\n", cachehits, cachemisses),
+
+		fclose( diskfile );
+		diskfile = 0;
+
 	}
+
 }
