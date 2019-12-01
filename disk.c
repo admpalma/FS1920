@@ -62,6 +62,10 @@ int disk_init( const char *filename, int n ) {
   	cache = (cache_entry*)malloc(sizeof(cache_entry) * nblocks);
   	cache_data = (cache_memory*)malloc(sizeof(cache_memory) * nblocks);
 
+		for(int i = 0; i < cache_nblocks; i++) {
+			cache[i].disk_block_number = -1;
+		}
+
 #ifdef DEBUG
     printf( "Cache blocks %d\n", cache_nblocks );
 #endif
@@ -124,15 +128,13 @@ void writeFromBufferToCache(int cacheIndex, const char* buffer) {
 	}
 }
 
-int entry_selection();
-
 /*Sets a new entry in cache at cacheIndex for the block at blocknum in disk.*/
 void setNewCacheEntry(int cacheIndex, int blocknum) {
 	cache[cacheIndex].dirty_bit = 0;
 	cache[cacheIndex].disk_block_number = blocknum;
 	cache[cacheIndex].datab = &cache_data[cacheIndex];
 }
-
+int entry_selection();
 /*Sets a new entry in cache for the block at blocknum in disk.
 Returns the cacheIndex in which the new entry was stored.*/
 int setNewEntryForBlock(int blocknum) {
@@ -213,8 +215,10 @@ void disk_read_data( int blocknum, char *data ) {
 
 	cacheIndex = search_cache(blocknum);
 	if (cacheIndex != -1) {
+		cachehits++;
 		writeFromCacheToBuffer(cacheIndex, data);
 	} else {
+		cachemisses++;
 		cacheIndex = setNewEntryForBlock(blocknum);
 		disk_read(blocknum, cache[cacheIndex].datab->data);
 		writeFromCacheToBuffer(cacheIndex, data);
@@ -230,8 +234,10 @@ void disk_write_data(int blocknum, const char* data) {
 #endif
 	int cacheIndex = search_cache(blocknum);
 	if (cacheIndex != -1) {
+				cachehits++;
 		writeFromBufferToCache(cacheIndex, data);
 	} else {
+			cachemisses++;
 		cacheIndex = setNewEntryForBlock(blocknum);
 		writeFromBufferToCache(cacheIndex, data);
 	}
@@ -242,8 +248,8 @@ void cache_debug() {
 	for( int i = 0; i < cache_nblocks; i++ ) {
     	// TODO
 		printf("Cache block: %d\n\n", i);
-		printf("	disk_block_number: %d\n", cache->disk_block_number);
-		printf("	dirty_bit: %d\n", cache->dirty_bit);
+		printf("	disk_block_number: %d\n", cache[i].disk_block_number);
+		printf("	dirty_bit: %d\n", cache[i].dirty_bit);
 		//printf("	datab: %d\n\n", &cache->datab);
 	}
 }
@@ -252,7 +258,7 @@ void cache_debug() {
 // flushes the modified data blocks to disk
 void disk_flush() {
 	for (size_t cacheIndex = 0; cacheIndex < cache_nblocks; cacheIndex++) {
-		if (cache->dirty_bit == 1) {
+		if (cache[cacheIndex].dirty_bit == 1) {
 			disk_flush_block(cacheIndex);
 		}
 	}
