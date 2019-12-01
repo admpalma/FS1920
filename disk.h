@@ -28,7 +28,6 @@ void disk_flush();
 /*Function to be called at the end of the program.*/
 void disk_close();
 
-/*Function that updates the given block found in cache to disk */
-void disk_update_block(int numblock);
+void cache_debug();
 
 #endif
