@@ -62,9 +62,9 @@ int disk_init( const char *filename, int n ) {
   	cache = (cache_entry*)malloc(sizeof(cache_entry) * nblocks);
   	cache_data = (cache_memory*)malloc(sizeof(cache_memory) * nblocks);
 
-		for(int i = 0; i < cache_nblocks; i++) {
-			cache[i].disk_block_number = -1;
-		}
+	for(int i = 0; i < cache_nblocks; i++) {
+		cache[i].disk_block_number = FREE_BLOCK;
+	}
 
 #ifdef DEBUG
     printf( "Cache blocks %d\n", cache_nblocks );
@@ -105,11 +105,13 @@ Returns the index of a cache_entry in cache with a matching blocknum,
 int search_cache(int data_block_num)
 {
 	int entry_num = 0;
-	do {
-		if (cache[entry_num++].disk_block_number == data_block_num) {
-			return --entry_num;
+	while (entry_num < cache_nblocks) {
+		int cacheNumber = cache[entry_num].disk_block_number;
+		if (cacheNumber == data_block_num) {
+			return entry_num;
 		}
-	} while (entry_num < cache_nblocks);
+		entry_num++;
+	}
 	return -1;
 }
 
@@ -216,28 +218,27 @@ void disk_read_data( int blocknum, char *data ) {
 }
 
 // Cache aware write
-void disk_write_data(int blocknum, char* data) {
+void disk_write_data(int blocknum, const char* data) {
 	sanity_check( blocknum, data );
 
 #ifdef DEBUG
 	printf( "disk_write_data for block %d \n", blocknum );
 #endif
 	int cacheIndex = search_cache(blocknum);
-	if (cacheIndex != -1) {
-				cachehits++;
-		writeFromBufferToCache(cacheIndex, data);
-	} else {
-			cachemisses++;
+	if (cacheIndex == -1) {
+		cachemisses++;
 		cacheIndex = setNewEntryForBlock(blocknum);
-		writeFromBufferToCache(cacheIndex, data);
+	} else {
+		cachehits++;
 	}
+	writeFromBufferToCache(cacheIndex, data);
 }
 
 // Writes the cache's metadata
 void cache_debug() {
 	for( int i = 0; i < cache_nblocks; i++ ) {
     	// TODO
-		printf("Cache block: %d\n\n", i);
+		printf("Cache block: %d\n", i);
 		printf("	disk_block_number: %d\n", cache[i].disk_block_number);
 		printf("	dirty_bit: %d\n", cache[i].dirty_bit);
 		//printf("	datab: %d\n\n", &cache->datab);

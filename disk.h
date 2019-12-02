@@ -20,7 +20,7 @@ void disk_read_data(int blocknum, char* data);
 void disk_write( int blocknum, const char *data );
 
 /*Function that uses the cache whenever a data block has to be written on disk.*/
-void disk_write_data(int blocknum, char* data);
+void disk_write_data(int blocknum, const char* data);
 
 /*Function that flushes all the dirty data blocks in the cache onto disk*/
 void disk_flush();
