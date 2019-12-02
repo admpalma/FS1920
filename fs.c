@@ -360,7 +360,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 {
 	int currentBlock, offsetInBlock;
 	int bytesLeft, nCopy, bytesToWrite, newEntry;
-	int originalNBlocks;
+	int originalNBlocks, originalSize;
 	char *src;
 	union fs_block buff;
 
@@ -384,6 +384,7 @@ int fs_write( int inumber, char *data, int length, int offset )
 	currentBlock = offset / DISK_BLOCK_SIZE;
 	offsetInBlock = offset % DISK_BLOCK_SIZE;
 	src = data;
+	originalSize = inode.size;
 
 	originalNBlocks = (inode.size / DISK_BLOCK_SIZE) - 1;
 	if (inode.size % DISK_BLOCK_SIZE > 0) {
@@ -392,9 +393,12 @@ int fs_write( int inumber, char *data, int length, int offset )
 
 	// Start, Mid and End
 	while (bytesLeft > 0 && currentBlock < POINTERS_PER_INODE) {
-		if (currentBlock > originalNBlocks || inode.size == 0) {
+		if (currentBlock > originalNBlocks) {
 			newEntry = getFreeBlock();
 			if (newEntry == -1) {
+				if (inode.size < originalSize) {
+					inode.size = originalSize;
+				}
 				inode_save(inumber, &inode);
 				return bytesToWrite;
 			}
@@ -404,10 +408,10 @@ int fs_write( int inumber, char *data, int length, int offset )
 		}
 		nCopy = writeDataInBuffer(buff.data, offsetInBlock, DISK_BLOCK_SIZE - offsetInBlock, src, bytesToWrite, bytesLeft);
 		disk_write_data(inode.direct[currentBlock++], buff.data);
-		if (currentBlock - 1 == originalNBlocks) {
+		if (currentBlock - 1 == originalNBlocks && originalNBlocks != 13) {
 			inode.size -= (inode.size % DISK_BLOCK_SIZE) - offsetInBlock;
 		}
-		if (currentBlock - 1 < originalNBlocks) {
+		if (currentBlock - 1 < originalNBlocks || (currentBlock - 1 == originalNBlocks && originalNBlocks == 13)) {
 			inode.size -= DISK_BLOCK_SIZE - offsetInBlock;
 		}
 		inode.size += nCopy;
@@ -415,7 +419,9 @@ int fs_write( int inumber, char *data, int length, int offset )
 		bytesLeft -= nCopy;
 		offsetInBlock = 0; // Wasteful mas oh well, not duping code
 	}
-
+	if (inode.size < originalSize) {
+		inode.size = originalSize;
+	}
 	/*if (currentBlock <= POINTERS_PER_INODE && bytesLeft > 0) {
 		// TODO idk se isto e suposto ser interpretado como erro
 		return -1;
