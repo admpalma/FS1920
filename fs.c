@@ -423,14 +423,3 @@ int fs_write( int inumber, char *data, int length, int offset )
 	inode_save( inumber, &inode );
 	return bytesToWrite;
 }
-
-int fs_flush( int inumber ) {
-	disk_flush();
-		return 0;
-}
-
-
-int fs_close( int inumber ) {
-	fs_flush(inumber);
-	return 0;
-}

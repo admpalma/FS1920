@@ -8,7 +8,7 @@
 
 static int do_copyin( const char *filename, int inumber );
 static int do_copyout( int inumber, const char *filename );
-// static int do_insert( const char *filename, int inumber, int at_offset );
+static int do_insert( const char *filename, int inumber, int at_offset );
 
 int main( int argc, char *argv[] )
 {
@@ -16,7 +16,7 @@ int main( int argc, char *argv[] )
 	char cmd[1024];
 	char arg1[1024];
 	char arg2[1024];
- // 	char arg3[1024];
+	char arg3[1024];
 	int inumber, result, args;
 
 	if(argc!=3) {
@@ -41,7 +41,7 @@ int main( int argc, char *argv[] )
 		line[strlen(line)-1] = (char)0;
 
 		args = sscanf(line,"%s %s %s",cmd,arg1,arg2);
-		// args = sscanf(line,"%s %s %s %s",cmd,arg1,arg2,arg3);
+		args = sscanf(line,"%s %s %s %s",cmd,arg1,arg2,arg3);
 		if(args==0) continue;
 
 		if(!strcmp(cmd,"format")) {
@@ -80,7 +80,7 @@ int main( int argc, char *argv[] )
 			if(args==2) {
 				inumber = atoi(arg1);
 				result = fs_getsize(inumber);
-				if( result >= 0 )	{	
+				if( result >= 0 )	{
 					printf("inode %d has size %d\n",inumber,result);
 				} else {
 					printf("getsize failed!\n");
@@ -88,7 +88,7 @@ int main( int argc, char *argv[] )
 			} else {
 				printf("use: getsize <inumber>\n");
 			}
-			
+
 		} else if(!strcmp(cmd,"create")) {
 			if(args==1) {
 				inumber = fs_create();
@@ -106,7 +106,7 @@ int main( int argc, char *argv[] )
 				if(!fs_delete(inumber)) {
 					printf("inode %d deleted.\n",inumber);
 				} else {
-					printf("delete failed!\n");	
+					printf("delete failed!\n");
 				}
 			} else {
 				printf("use: delete <inumber>\n");
@@ -130,9 +130,9 @@ int main( int argc, char *argv[] )
 				}
 			} else {
 				printf("use: copyin <filename> <inumber>\n");
-			} 
+			}
 		}
-		/* // in case you may want to test data insertion/overwrite at a specific position in a file
+		 // in case you may want to test data insertion/overwrite at a specific position in a file
 		else if(!strcmp(cmd,"insertinfile")) {
 			if(args==4) {
 				inumber = atoi(arg2);
@@ -144,7 +144,7 @@ int main( int argc, char *argv[] )
 			} else {
 				printf("use: insertinfile <filename> <inumber>  <offset>\n");
 			}
-		}  */
+		}
 		else if(!strcmp(cmd,"copyout")) {
 			if(args==3) {
 				inumber = atoi(arg1);
@@ -173,7 +173,7 @@ int main( int argc, char *argv[] )
 			printf("    cat     <inode>\n");
 			printf("    copyin  <file> <inode>\n");
 			printf("    copyout <inode> <file>\n");
-			// printf("    insertinfile <file> <inode> <offset>\n");
+			printf("    insertinfile <file> <inode> <offset>\n");
 			printf("    diskflush\n");
 			printf("    help\n");
 			printf("    quit\n");
@@ -228,7 +228,6 @@ static int do_copyin( const char *filename, int inumber )
 	printf("%d bytes copied\n",offset);
 
 	fclose(file);
-	fs_close(inumber);
 	return 1;
 }
 
@@ -256,12 +255,11 @@ static int do_copyout( int inumber, const char *filename )
 	printf("%d bytes copied\n",offset);
 
 	fclose(file);
-	fs_close(inumber);
+	//fs_close(inumber);
 	return 1;
 }
 
 
-/*
 static int do_insert( const char *filename, int inumber, int at_offset )
 {
 	FILE *file;
@@ -296,10 +294,3 @@ static int do_insert( const char *filename, int inumber, int at_offset )
 	// fs_close(inumber);
 	return 1;
 }
-*/
-
-
-
-
-
-

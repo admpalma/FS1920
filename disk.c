@@ -149,16 +149,6 @@ void disk_flush_block(int cacheIndex) {
 	cache[cacheIndex].dirty_bit = 0;
 }
 
-/*Flushes the contents of a cache block at cacheIndex into disk*/
-void disk_update_block(int blocknum) {
-
-	int cacheIndex = search_cache(blocknum);
-	if (cacheIndex != -1) {
-		disk_flush_block(cacheIndex);
-	}
-
-}
-
 void disk_read( int blocknum, char *data ) {
     sanity_check( blocknum, data );
 
@@ -226,7 +216,7 @@ void disk_read_data( int blocknum, char *data ) {
 }
 
 // Cache aware write
-void disk_write_data(int blocknum, const char* data) {
+void disk_write_data(int blocknum, char* data) {
 	sanity_check( blocknum, data );
 
 #ifdef DEBUG
