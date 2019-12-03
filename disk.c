@@ -64,6 +64,7 @@ int disk_init( const char *filename, int n ) {
 
 	for(int i = 0; i < cache_nblocks; i++) {
 		cache[i].disk_block_number = FREE_BLOCK;
+		cache[i].datab = &cache_data[i];
 	}
 
 #ifdef DEBUG
@@ -106,11 +107,9 @@ int search_cache(int data_block_num)
 {
 	int entry_num = 0;
 	while (entry_num < cache_nblocks) {
-		int cacheNumber = cache[entry_num].disk_block_number;
-		if (cacheNumber == data_block_num) {
-			return entry_num;
+		if (cache[entry_num++].disk_block_number == data_block_num) {
+			return --entry_num;
 		}
-		entry_num++;
 	}
 	return -1;
 }
@@ -134,7 +133,6 @@ void writeFromBufferToCache(int cacheIndex, const char* buffer) {
 void setNewCacheEntry(int cacheIndex, int blocknum) {
 	cache[cacheIndex].dirty_bit = 0;
 	cache[cacheIndex].disk_block_number = blocknum;
-	cache[cacheIndex].datab = &cache_data[cacheIndex];
 }
 int entry_selection();
 
@@ -193,7 +191,10 @@ int entry_selection()
 	int entry_num = search_cache(FREE_BLOCK);
 	if (entry_num == -1) {
 		entry_num = rand() % cache_nblocks;
-		disk_flush_block(entry_num);
+		if (cache[entry_num].dirty_bit == 1) {
+			disk_flush_block(entry_num);
+		}
+		cache[entry_num].disk_block_number = -1;
 	}
 	return entry_num;
 }
