@@ -59,8 +59,8 @@ int disk_init( const char *filename, int n ) {
     nwrites = 0;
 
 	cache_nblocks = (int)ceil((float)nblocks * 0.2);
-  	cache = (cache_entry*)malloc(sizeof(cache_entry) * nblocks);
-  	cache_data = (cache_memory*)malloc(sizeof(cache_memory) * nblocks);
+  	cache = (cache_entry*)malloc(sizeof(cache_entry) * cache_nblocks);
+  	cache_data = (cache_memory*)malloc(sizeof(cache_memory) * cache_nblocks);
 
 	for(int i = 0; i < cache_nblocks; i++) {
 		cache[i].disk_block_number = FREE_BLOCK;
@@ -137,18 +137,19 @@ void setNewCacheEntry(int cacheIndex, int blocknum) {
 	cache[cacheIndex].datab = &cache_data[cacheIndex];
 }
 int entry_selection();
+
+/*Flushes the contents of a cache block at cacheIndex into disk*/
+void disk_flush_block(int cacheIndex) {
+	disk_write(cache[cacheIndex].disk_block_number, cache[cacheIndex].datab->data);
+	cache[cacheIndex].dirty_bit = 0;
+}
+
 /*Sets a new entry in cache for the block at blocknum in disk.
 Returns the cacheIndex in which the new entry was stored.*/
 int setNewEntryForBlock(int blocknum) {
 	int cacheIndex = entry_selection();
 	setNewCacheEntry(cacheIndex, blocknum);
 	return cacheIndex;
-}
-
-/*Flushes the contents of a cache block at cacheIndex into disk*/
-void disk_flush_block(int cacheIndex) {
-	disk_write(cache[cacheIndex].disk_block_number, cache[cacheIndex].datab->data);
-	cache[cacheIndex].dirty_bit = 0;
 }
 
 void disk_read( int blocknum, char *data ) {
@@ -206,15 +207,14 @@ void disk_read_data( int blocknum, char *data ) {
 #endif
 
 	cacheIndex = search_cache(blocknum);
-	if (cacheIndex != -1) {
-		cachehits++;
-		writeFromCacheToBuffer(cacheIndex, data);
-	} else {
+	if (cacheIndex == -1) {
 		cachemisses++;
 		cacheIndex = setNewEntryForBlock(blocknum);
 		disk_read(blocknum, cache[cacheIndex].datab->data);
-		writeFromCacheToBuffer(cacheIndex, data);
+	} else {
+		cachehits++;
 	}
+	writeFromCacheToBuffer(cacheIndex, data);
 }
 
 // Cache aware write
