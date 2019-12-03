@@ -139,7 +139,6 @@ int fs_mount()
 	my_super.ninodeblocks = block.super.ninodeblocks;
 	my_super.ninodes = block.super.ninodes;
 
-	// Nao fiz free desta merda porque nao sei onde meter
 	blockBitMap = (unsigned char *)malloc(block.super.nblocks*sizeof(char));
 
 	// This registers the superblock and inodeblocks with NOT_FREE on the blockBitMap
@@ -333,7 +332,7 @@ int fs_read( int inumber, char *data, int length, int offset )
 		bytesToRead += nCopy;
 		bytesLeft -= nCopy;
 		offsetCurrent += nCopy;
-		offsetInBlock = 0; // Wasteful mas oh well, not duping code
+		offsetInBlock = 0;
 	}
 	return bytesToRead;
 }
@@ -417,15 +416,11 @@ int fs_write( int inumber, char *data, int length, int offset )
 		inode.size += nCopy;
 		bytesToWrite += nCopy;
 		bytesLeft -= nCopy;
-		offsetInBlock = 0; // Wasteful mas oh well, not duping code
+		offsetInBlock = 0;
 	}
 	if (inode.size < originalSize) {
 		inode.size = originalSize;
 	}
-	/*if (currentBlock <= POINTERS_PER_INODE && bytesLeft > 0) {
-		// TODO idk se isto e suposto ser interpretado como erro
-		return -1;
-	}*/
 	inode_save( inumber, &inode );
 	return bytesToWrite;
 }
